@@ -74,6 +74,19 @@ export default function StudyPlan({ plan }) {
                   </p>
                 </div>
 
+                {Array.isArray(item.practice_focus) && item.practice_focus.length > 0 && (
+                  <div className="rounded-[20px] bg-white p-4 shadow-[0_2px_8px_rgba(44,62,80,0.08)]">
+                    <p className="m-0 text-sm font-semibold text-text-primary">
+                      Practice focus
+                    </p>
+                    <ul className="mt-2 space-y-2 pl-5 text-sm leading-7 text-text-muted">
+                      {item.practice_focus.map((topic, practiceIndex) => (
+                        <li key={`${item.day}-practice-${practiceIndex}`}>{topic}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {item.tip && (
                   <div className="rounded-[20px] bg-white p-4 shadow-[0_2px_8px_rgba(44,62,80,0.08)]">
                     <p className="m-0 text-sm font-semibold text-text-primary">

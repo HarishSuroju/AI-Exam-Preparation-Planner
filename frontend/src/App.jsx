@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import HomePage from "./components/HomePage";
 import PlannerPage from "./components/PlannerPage";
+import QuizPage from "./components/QuizPage";
 
 const fallbackContent = {
   eyebrow: "AI-Guided Exam Preparation",
@@ -91,6 +92,7 @@ export default function App() {
           }
         />
         <Route path="/planner" element={<PlannerPage />} />
+        <Route path="/quiz" element={<QuizPage />} />
       </Routes>
     </Router>
   );

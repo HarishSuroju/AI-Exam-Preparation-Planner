@@ -46,6 +46,15 @@ def _topic_summary(topics_for_day):
     return preview
 
 
+def _build_practice_focus(studied_topics, current_topics, limit=3):
+    review_pool = _unique_topics(studied_topics + current_topics)
+
+    if not review_pool:
+        return []
+
+    return review_pool[-limit:]
+
+
 def generate_study_plan(
     topics,
     days_left,
@@ -102,6 +111,7 @@ def generate_study_plan(
             )
 
     plan = []
+    studied_so_far = []
 
     for day_index, topics_for_day in enumerate(day_buckets):
         if not topics_for_day:
@@ -129,6 +139,12 @@ def generate_study_plan(
             ),
         }
 
+        if "Practice/Quiz" in entry["activity"] or entry["activity"] == "Revision":
+            entry["practice_focus"] = _build_practice_focus(
+                studied_so_far,
+                topics_for_day if focus_topic != "Revision" else [],
+            )
+
         if with_tips and focus_topic != "Revision":
             try:
                 entry["tip"] = get_study_tip(focus_topic, weakest_score)
@@ -136,5 +152,7 @@ def generate_study_plan(
                 entry["tip"] = "(Tip unavailable)"
 
         plan.append(entry)
+        if focus_topic != "Revision":
+            studied_so_far.extend(topics_for_day)
 
     return plan
