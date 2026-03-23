@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
+    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  --font-body: "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
+    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  --font-code: "source-code-pro", Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+
+  --color-primary: #1b75bc;
+  --color-accent: #61dafb;
+  --color-surface-dark: #282c34;
+  --color-gray-soft: #f5f6fa;
+  --color-gray-border: #e5e9f2;
+  --color-text-primary: #222b45;
+  --color-text-muted: #6c757d;
+}
+
+:root {
+  color: var(--color-text-primary);
+  background-color: var(--color-gray-soft);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 55%, white);
+  color: var(--color-surface-dark);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
