@@ -5,8 +5,8 @@ function cleanText(value) {
 function normalizeSyllabus(text) {
   return text
     .replace(/\r/g, "")
-    .replace(/[–—−]/g, "-")
-    .replace(/[•●]/g, "\n");
+    .replace(/[\u2013\u2014\u2212]/g, "-")
+    .replace(/[\u2022\u25cf]/g, "\n");
 }
 
 function chunkFragments(fragments) {
