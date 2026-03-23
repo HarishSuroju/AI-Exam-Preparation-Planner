@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiUrl } from "../api/base";
 import { Link } from "react-router-dom";
 import StudyPlan from "./StudyPlan";
 import SyllabusInput from "./SyllabusInput";
@@ -45,7 +46,7 @@ export default function PlannerPage() {
         });
       });
 
-      const response = await fetch("/api/study-plan", {
+      const response = await fetch(apiUrl("/api/study-plan"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -3,6 +3,14 @@ import os
 
 import openai
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv():
+        return None
+
+load_dotenv()
+
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 LLM_MODEL = os.getenv("OPENAI_MODEL", "gpt-5")

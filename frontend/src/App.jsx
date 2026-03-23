@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { apiUrl } from "./api/base";
 import HomePage from "./components/HomePage";
 import PlannerPage from "./components/PlannerPage";
 
@@ -41,8 +42,8 @@ export default function App() {
     async function loadLandingPage() {
       try {
         const [landingResponse, healthResponse] = await Promise.all([
-          fetch("/api/landing"),
-          fetch("/api/health"),
+          fetch(apiUrl("/api/landing")),
+          fetch(apiUrl("/api/health")),
         ]);
 
         if (!landingResponse.ok || !healthResponse.ok) {

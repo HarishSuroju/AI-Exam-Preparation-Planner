@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI # type: ignore
 from fastapi.middleware.cors import CORSMiddleware # type: ignore
 import uvicorn # type: ignore
@@ -5,11 +7,25 @@ from pydantic import BaseModel
 from typing import List, Dict
 from app.planner import generate_study_plan
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv():
+        return None
+
+load_dotenv()
+
+
+def _get_allowed_origins():
+    configured_origins = os.getenv("FRONTEND_ORIGINS", "")
+    origins = [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    return origins or ["http://localhost:5173", "http://127.0.0.1:5173"]
+
 app = FastAPI(title="Edwisely API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

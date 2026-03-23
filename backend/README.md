@@ -12,7 +12,13 @@ This project uses FastAPI.
    ```sh
    pip install -r requirements.txt
    ```
-3. Run the server:
+3. Create a `.env` file from `.env.example` and set:
+   ```sh
+   OPENAI_API_KEY=your_openai_api_key
+   OPENAI_MODEL=gpt-5
+   FRONTEND_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+   ```
+4. Run the server:
    ```sh
    uvicorn main:app --reload
    ```
