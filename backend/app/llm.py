@@ -52,97 +52,122 @@ def get_study_tip(topic, performance):
     )
 
 
-def generate_quiz_with_llm(topics, num_questions=5):
-    topic_lines = "\n".join(f"- {topic}" for topic in topics)
+def generate_study_plan_with_llm(
+    topics,
+    days_left,
+    performance_data,
+    study_start_time=None,
+    study_end_time=None,
+    practice_frequency=3,
+    with_tips=True,
+):
+    weakest_score = min(performance_data.get(topic, 3) for topic in topics)
+    strongest_score = max(performance_data.get(topic, 3) for topic in topics)
+    weakest_topics = [
+        topic for topic in topics if performance_data.get(topic, 3) == weakest_score
+    ]
+    strongest_topics = [
+        topic for topic in topics if performance_data.get(topic, 3) == strongest_score
+    ]
+    topic_lines = "\n".join(
+        f"- {topic} (student score: {performance_data.get(topic, 3)}/5)"
+        for topic in topics
+    )
+    weak_topic_lines = "\n".join(f"- {topic}" for topic in weakest_topics)
+    strong_topic_lines = "\n".join(f"- {topic}" for topic in strongest_topics)
+    study_time = (
+        f"{study_start_time} - {study_end_time}"
+        if study_start_time and study_end_time
+        else ""
+    )
     prompt = f"""
-You are creating a study quiz from a syllabus.
+You are generating a personalized day-wise study plan from a syllabus.
 
-Syllabus topics:
+Inputs:
+- Days left: {days_left}
+- Study time window: {study_time or "Not specified"}
+- Practice frequency: every {practice_frequency} day(s)
+- Topics with student performance:
 {topic_lines}
+- Weakest topics that need maximum attention:
+{weak_topic_lines}
+- Strongest topics that should receive less time than weak topics:
+{strong_topic_lines}
 
-Generate {num_questions} multiple choice questions that test actual understanding of the syllabus content.
-
-Rules:
-- Use only the syllabus topics as the source scope.
-- Do not ask "which topic is in which unit" or "which unit contains this topic".
-- Ask concept-focused, recall-focused, or application-style questions that a student could answer after studying the syllabus.
-- Each question must have exactly 4 options.
-- Exactly one option must be correct.
-- Keep questions clear and student-friendly.
-- Explanations must be brief and actionable.
+Requirements:
+- Generate exactly {days_left} day entries.
+- Prioritize weaker topics first.
+- The weakest topics must appear in the first days of the plan.
+- The weakest topics must receive more total focus than the strongest topics.
+- Cover every provided topic at least once across the plan.
+- You may group multiple topics into the same day if needed.
+- Use the exact provided topic strings inside topic_breakdown.
+- Include practice and revision days where appropriate.
+- activity must be one of: Study, Study + Practice/Quiz, Practice/Quiz, Revision, Study + Revision.
+- study_time must be "{study_time}" if a time window is provided.
+- practice_focus should contain exact topic strings for practice/revision work, otherwise [].
+- tip should be a concise actionable study tip if with_tips is true, otherwise an empty string.
 
 Return valid JSON only with this shape:
 {{
-  "questions": [
+  "plan": [
     {{
-      "question": "string",
-      "options": ["a", "b", "c", "d"],
-      "correct_index": 0,
-      "explanation": "string",
-      "topic_focus": "string"
+      "day": 1,
+      "topic": "short readable summary",
+      "topic_breakdown": ["exact topic string"],
+      "activity": "Study",
+      "study_time": "{study_time}",
+      "practice_focus": ["exact topic string"],
+      "tip": "string"
     }}
   ]
 }}
 """
     response_text = _chat_completion(
         [{"role": "user", "content": prompt}],
-        max_tokens=1400,
-        temperature=0.5,
-    )
-    payload = _extract_json_payload(response_text)
-    questions = payload.get("questions", [])
-
-    normalized_questions = []
-    for index, question in enumerate(questions[:num_questions], start=1):
-        options = question.get("options", [])
-        correct_index = question.get("correct_index", 0)
-
-        if (
-            not question.get("question")
-            or len(options) != 4
-            or not isinstance(correct_index, int)
-            or correct_index < 0
-            or correct_index >= len(options)
-        ):
-            continue
-
-        normalized_questions.append(
-            {
-                "id": index,
-                "question": question["question"].strip(),
-                "options": [str(option).strip() for option in options],
-                "correct_index": correct_index,
-                "explanation": str(question.get("explanation", "")).strip(),
-                "topic_focus": str(question.get("topic_focus", "")).strip(),
-            }
-        )
-
-    if not normalized_questions:
-        raise ValueError("LLM did not return valid quiz questions")
-
-    return normalized_questions
-
-
-def summarize_quiz_result_with_llm(score, total, results):
-    serialized_results = json.dumps(results, ensure_ascii=True)
-    prompt = f"""
-You are reviewing a student's MCQ quiz performance.
-
-Score: {score}/{total}
-Question results:
-{serialized_results}
-
-Write a short result summary for the student.
-
-Rules:
-- Mention the score.
-- Highlight 1-2 strengths.
-- Highlight 1-2 weak areas based on incorrect answers.
-- End with a short next-step recommendation for revision.
-- Keep it concise, clear, and supportive.
-"""
-    return _chat_completion(
-        [{"role": "user", "content": prompt}],
-        max_tokens=220,
+        max_tokens=2200,
         temperature=0.4,
     )
+    payload = _extract_json_payload(response_text)
+    plan = payload.get("plan", [])
+
+    if not isinstance(plan, list) or len(plan) != days_left:
+        raise ValueError("LLM did not return a valid day-wise plan")
+
+    normalized_plan = []
+    for day_index, entry in enumerate(plan, start=1):
+        topic_breakdown = entry.get("topic_breakdown", [])
+        if isinstance(topic_breakdown, str):
+            topic_breakdown = [topic_breakdown]
+
+        normalized_entry = {
+            "day": day_index,
+            "topic": str(entry.get("topic", "")).strip(),
+            "topic_breakdown": [str(topic).strip() for topic in topic_breakdown if str(topic).strip()],
+            "activity": str(entry.get("activity", "Study")).strip() or "Study",
+            "study_time": study_time or entry.get("study_time") or None,
+            "practice_focus": [
+                str(topic).strip()
+                for topic in entry.get("practice_focus", [])
+                if str(topic).strip()
+            ],
+        }
+
+        if with_tips:
+            normalized_entry["tip"] = str(entry.get("tip", "")).strip()
+
+        if not normalized_entry["topic"] or not normalized_entry["topic_breakdown"]:
+            raise ValueError("LLM returned an incomplete study plan entry")
+
+        normalized_plan.append(normalized_entry)
+
+    covered_topics = {
+        topic
+        for entry in normalized_plan
+        for topic in entry["topic_breakdown"]
+    }
+    missing_topics = [topic for topic in topics if topic not in covered_topics]
+    if missing_topics:
+        raise ValueError("LLM plan did not cover all topics")
+
+    return normalized_plan

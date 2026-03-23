@@ -1,7 +1,6 @@
 # Main planning logic for generating personalized study plans
 
-import math
-from app.llm import get_study_tip
+from app.llm import generate_study_plan_with_llm, get_study_tip
 
 
 def _unique_topics(topics):
@@ -55,28 +54,63 @@ def _build_practice_focus(studied_topics, current_topics, limit=3):
     return review_pool[-limit:]
 
 
-def generate_study_plan(
+def _topic_coverage_count(plan, topics):
+    tracked_topics = set(topics)
+    count = 0
+
+    for entry in plan:
+        for topic in entry.get("topic_breakdown", []):
+            if topic in tracked_topics:
+                count += 1
+        for topic in entry.get("practice_focus", []):
+            if topic in tracked_topics:
+                count += 1
+
+    return count
+
+
+def _llm_plan_prioritizes_weak_topics(plan, performance_data):
+    scored_topics = {
+        topic: score
+        for topic, score in performance_data.items()
+        if isinstance(score, (int, float))
+    }
+
+    if not scored_topics:
+        return True
+
+    weakest_score = min(scored_topics.values())
+    strongest_score = max(scored_topics.values())
+
+    if weakest_score == strongest_score:
+        return True
+
+    weak_topics = [topic for topic, score in scored_topics.items() if score == weakest_score]
+    strong_topics = [topic for topic, score in scored_topics.items() if score == strongest_score]
+
+    first_days = plan[: max(1, min(2, len(plan)))]
+    early_focus = {
+        topic
+        for entry in first_days
+        for topic in entry.get("topic_breakdown", [])
+    }
+    weak_seen_early = any(topic in early_focus for topic in weak_topics)
+
+    weak_mentions = _topic_coverage_count(plan, weak_topics)
+    strong_mentions = _topic_coverage_count(plan, strong_topics)
+
+    return weak_seen_early and weak_mentions > strong_mentions
+
+
+def _generate_rule_based_plan(
     topics,
     days_left,
     performance_data,
     with_tips=True,
     study_start_time=None,
     study_end_time=None,
-    practice_frequency=3
+    practice_frequency=3,
 ):
-    """
-    topics: list of topic names
-    days_left: int
-    performance_data: dict {topic: performance_score (1=weak, 5=strong)}
-    with_tips: bool, whether to include LLM tips
-    study_start_time: str, start time of study session
-    study_end_time: str, end time of study session
-    practice_frequency: int, frequency of practice/revision slots
-    Returns: list of dicts for a day-wise study plan
-    """
-    if days_left <= 0:
-        return []
-
     ordered_topics = _unique_topics(topics)
 
     if not ordered_topics:
@@ -156,3 +190,49 @@ def generate_study_plan(
             studied_so_far.extend(topics_for_day)
 
     return plan
+
+
+def generate_study_plan(
+    topics,
+    days_left,
+    performance_data,
+    with_tips=True,
+    study_start_time=None,
+    study_end_time=None,
+    practice_frequency=3
+):
+    """
+    Generate a personalized study plan. Primary path uses the LLM, with a
+    rule-based fallback if the LLM is unavailable or returns invalid output.
+    """
+    if days_left <= 0:
+        return []
+
+    ordered_topics = _unique_topics(topics)
+
+    if not ordered_topics:
+        return []
+
+    try:
+        llm_plan = generate_study_plan_with_llm(
+            ordered_topics,
+            days_left,
+            performance_data,
+            study_start_time=study_start_time,
+            study_end_time=study_end_time,
+            practice_frequency=practice_frequency,
+            with_tips=with_tips,
+        )
+        if not _llm_plan_prioritizes_weak_topics(llm_plan, performance_data):
+            raise ValueError("LLM plan did not prioritize weak topics enough")
+        return llm_plan
+    except Exception:
+        return _generate_rule_based_plan(
+            ordered_topics,
+            days_left,
+            performance_data,
+            with_tips=with_tips,
+            study_start_time=study_start_time,
+            study_end_time=study_end_time,
+            practice_frequency=practice_frequency,
+        )

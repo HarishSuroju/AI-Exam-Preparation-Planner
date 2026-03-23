@@ -1,9 +1,8 @@
-# Test cases for the planner and quiz logic
+# Test cases for the planner logic
 import unittest
 from unittest.mock import patch
 
 from app.planner import generate_study_plan
-from app.quiz import evaluate_quiz_submission, generate_quiz
 
 
 class TestPlanner(unittest.TestCase):
@@ -98,57 +97,86 @@ class TestPlanner(unittest.TestCase):
         self.assertNotEqual(practice_days_every_2, practice_days_every_4)
         self.assertTrue(any(entry.get("practice_focus") for entry in plan_every_2))
 
-    @patch("app.quiz.generate_quiz_with_llm")
-    def test_generate_quiz_prefers_llm_questions(self, mock_generate_quiz_with_llm):
-        mock_generate_quiz_with_llm.return_value = [
+    @patch("app.planner.generate_study_plan_with_llm")
+    def test_prefers_llm_generated_plan_when_available(self, mock_llm_plan):
+        mock_llm_plan.return_value = [
             {
-                "id": 1,
-                "question": "What does the syllabus emphasize for Topic A?",
-                "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-                "correct_index": 1,
-                "explanation": "Because Topic A focuses on Option 2.",
-                "topic_focus": "Topic A",
+                "day": 1,
+                "topic": "LLM topic summary",
+                "topic_breakdown": ["UNIT - I: Topic A"],
+                "activity": "Study",
+                "study_time": "18:00 - 21:00",
+                "practice_focus": [],
+                "tip": "Use active recall.",
             }
         ]
 
-        questions = generate_quiz(["UNIT - I: Topic A", "UNIT - II: Topic B"], num_questions=1)
-
-        self.assertEqual(len(questions), 1)
-        self.assertEqual(
-            questions[0]["question"],
-            "What does the syllabus emphasize for Topic A?",
+        plan = generate_study_plan(
+            ["UNIT - I: Topic A"],
+            1,
+            {"UNIT - I: Topic A": 2},
+            with_tips=True,
+            study_start_time="18:00",
+            study_end_time="21:00",
         )
 
-    @patch("app.quiz.summarize_quiz_result_with_llm")
-    def test_evaluate_quiz_submission_returns_score_and_summary(self, mock_summary):
-        mock_summary.return_value = "You scored well overall. Revise Topic B next."
-        questions = [
+        self.assertEqual(plan[0]["topic"], "LLM topic summary")
+        mock_llm_plan.assert_called_once()
+
+    @patch("app.planner.generate_study_plan_with_llm")
+    def test_falls_back_when_llm_plan_does_not_prioritize_weak_topics(self, mock_llm_plan):
+        mock_llm_plan.return_value = [
             {
-                "id": 1,
-                "question": "Q1",
-                "options": ["A", "B", "C", "D"],
-                "correct_index": 2,
-                "explanation": "Because C is correct.",
-                "topic_focus": "Topic B",
+                "day": 1,
+                "topic": "Strong topic first",
+                "topic_breakdown": ["UNIT - I: Strong Topic"],
+                "activity": "Study",
+                "study_time": "18:00 - 21:00",
+                "practice_focus": [],
+                "tip": "Tip",
             },
             {
-                "id": 2,
-                "question": "Q2",
-                "options": ["A", "B", "C", "D"],
-                "correct_index": 0,
-                "explanation": "Because A is correct.",
-                "topic_focus": "Topic C",
+                "day": 2,
+                "topic": "Another strong topic",
+                "topic_breakdown": ["UNIT - II: Strong Topic"],
+                "activity": "Study",
+                "study_time": "18:00 - 21:00",
+                "practice_focus": [],
+                "tip": "Tip",
+            },
+            {
+                "day": 3,
+                "topic": "Weak topic too late",
+                "topic_breakdown": ["UNIT - V: Weak Topic"],
+                "activity": "Study",
+                "study_time": "18:00 - 21:00",
+                "practice_focus": [],
+                "tip": "Tip",
             },
         ]
-        answers = {"1": 2, "2": 1}
 
-        result = evaluate_quiz_submission(questions, answers)
+        topics = [
+            "UNIT - I: Strong Topic",
+            "UNIT - II: Strong Topic",
+            "UNIT - V: Weak Topic",
+        ]
+        performance = {
+            "UNIT - I: Strong Topic": 5,
+            "UNIT - II: Strong Topic": 5,
+            "UNIT - V: Weak Topic": 1,
+        }
 
-        self.assertEqual(result["score"], 1)
-        self.assertEqual(result["total"], 2)
-        self.assertEqual(len(result["results"]), 2)
-        self.assertEqual(result["summary"], "You scored well overall. Revise Topic B next.")
-        self.assertFalse(result["results"][1]["is_correct"])
+        plan = generate_study_plan(
+            topics,
+            3,
+            performance,
+            with_tips=False,
+            study_start_time="18:00",
+            study_end_time="21:00",
+        )
+
+        first_day_topics = set(plan[0]["topic_breakdown"])
+        self.assertIn("UNIT - V: Weak Topic", first_day_topics)
 
 
 if __name__ == "__main__":

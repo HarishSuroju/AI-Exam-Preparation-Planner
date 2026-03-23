@@ -2,9 +2,8 @@ from fastapi import FastAPI # type: ignore
 from fastapi.middleware.cors import CORSMiddleware # type: ignore
 import uvicorn # type: ignore
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict
 from app.planner import generate_study_plan
-from app.quiz import evaluate_quiz_submission, generate_quiz
 
 app = FastAPI(title="Edwisely API")
 
@@ -66,16 +65,6 @@ class StudyPlanRequest(BaseModel):
     practice_frequency: int = 3  # every N days (default: every 3 days)
 
 
-class QuizRequest(BaseModel):
-    topics: List[str]
-    num_questions: int = 5
-
-
-class QuizSubmitRequest(BaseModel):
-    questions: List[Dict[str, Any]]
-    answers: Dict[str, int]
-
-
 @app.post("/api/study-plan")
 def get_study_plan(request: StudyPlanRequest):
     print("Received study plan request:", request.dict())
@@ -90,25 +79,6 @@ def get_study_plan(request: StudyPlanRequest):
             practice_frequency=request.practice_frequency
         )
         return {"plan": plan}
-    except Exception as e:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/api/generate-quiz")
-def get_quiz(request: QuizRequest):
-    try:
-        questions = generate_quiz(request.topics, request.num_questions)
-        return {"questions": questions}
-    except Exception as e:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/api/submit-quiz")
-def submit_quiz(request: QuizSubmitRequest):
-    try:
-        return evaluate_quiz_submission(request.questions, request.answers)
     except Exception as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e))

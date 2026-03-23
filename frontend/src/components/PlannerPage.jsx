@@ -1,12 +1,9 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import StudyPlan from "./StudyPlan";
 import SyllabusInput from "./SyllabusInput";
 
-const QUIZ_STORAGE_KEY = "edwisely-quiz-topics";
-
 export default function PlannerPage() {
-  const navigate = useNavigate();
   const [units, setUnits] = useState([]);
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -65,15 +62,6 @@ export default function PlannerPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGenerateQuiz = () => {
-    if (flattenedTopics.length === 0) {
-      return;
-    }
-
-    sessionStorage.setItem(QUIZ_STORAGE_KEY, JSON.stringify(flattenedTopics));
-    navigate("/quiz", { state: { topics: flattenedTopics } });
   };
 
   return (
@@ -260,26 +248,6 @@ export default function PlannerPage() {
         )}
 
         <StudyPlan plan={plan} />
-
-        {plan && flattenedTopics.length > 0 && (
-          <div className="mt-8 flex flex-wrap items-center gap-4 rounded-[32px] border border-gray-border bg-white p-6 shadow-[0_2px_8px_rgba(44,62,80,0.08)]">
-            <div className="flex-1">
-              <p className="m-0 text-sm font-semibold tracking-[0.22em] text-primary uppercase">
-                Quiz mode
-              </p>
-              <p className="m-0 mt-2 text-sm leading-7 text-text-muted">
-                Generate a quick multiple choice quiz from your parsed syllabus topics and test yourself on a separate page.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleGenerateQuiz}
-              className="rounded-2xl bg-surface-dark px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(34,43,69,0.16)] transition hover:-translate-y-0.5 hover:bg-primary"
-            >
-              Generate quiz
-            </button>
-          </div>
-        )}
       </div>
     </main>
   );
